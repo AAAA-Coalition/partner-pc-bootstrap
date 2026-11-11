@@ -56,6 +56,20 @@ if (-not (Test-Path (Join-Path $dest ".git"))) {
 }
 $inst = Join-Path $dest "setup\installer_pc_partenaire.ps1"
 $par  = Join-Path $dest "setup\partenaire.json"
+# Several people may share one exchange repository (11/11/2026: Arlinda joins Ana's). Their parameters
+# live in setup\<person>\partenaire.json. Chosen by $env:PARTENAIRE, else by the "github" field equal to
+# the connected GitHub login, else setup\partenaire.json (the first partner, unchanged).
+if ($env:PARTENAIRE) {
+  if ($env:PARTENAIRE -notmatch "^[a-z0-9-]+$") { Red "PARTENAIRE not understood: $env:PARTENAIRE"; return }
+  $par = Join-Path $dest ("setup\{0}\partenaire.json" -f $env:PARTENAIRE)
+  if (-not (Test-Path $par)) { Red "no parameters for $env:PARTENAIRE in $repo. Tell the AAAA team."; return }
+} else {
+  foreach ($f in Get-ChildItem (Join-Path $dest "setup") -Directory -ErrorAction SilentlyContinue) {
+    $c = Join-Path $f.FullName "partenaire.json"
+    if ((Test-Path $c) -and $who -and ((Get-Content $c -Raw | ConvertFrom-Json).github -eq $who)) { $par = $c; break }
+  }
+}
+Write-Host "Parameters: $par" -ForegroundColor Yellow
 if (-not (Test-Path $inst) -or -not (Test-Path $par)) { Red "the setup folder is missing in $repo (installer or partenaire.json). Tell the AAAA team."; return }
 
 # 4. Installer: it does the rest and prints GREEN / RED for each step
